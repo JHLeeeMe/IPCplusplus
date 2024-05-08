@@ -1,5 +1,5 @@
 /// ============================================================================
-/// sysv_mq.h
+/// /sysv/sysv_mq.h
 /// ----------------------------------------------------------------------------
 /// Message Queue (System V IPC)
 ///
@@ -55,7 +55,8 @@ namespace mq
 __SYSV_END
 __IPCPLUSPLUS_END
 
-using namespace ::IPCplusplus;
+namespace sysv = ::IPCplusplus::sysv;
+namespace mq   = ::IPCplusplus::sysv::mq;
 
 
 #endif  // MQUEUE_H
