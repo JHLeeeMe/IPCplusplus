@@ -8,4 +8,6 @@ RUN apt-get -y update && \
     apt-get -y --no-install-recommends install \
         build-essential \
         cmake \
-        net-tools
+        net-tools \
+        tree \
+        git
