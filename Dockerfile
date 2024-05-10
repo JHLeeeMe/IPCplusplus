@@ -1,6 +1,6 @@
 FROM jhleeeme/ubuntu:20.04
 LABEL maintainer="JHLeeeMe" \
-      description="C++ dev"
+      description="C++ dev-container"
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y update && \

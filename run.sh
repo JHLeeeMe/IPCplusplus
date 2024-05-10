@@ -7,5 +7,5 @@ docker run \
     -v common-volume:/common-volume \
     -v $(pwd):/app \
     --name IPCplusplus-dev \
-    jhleeeme/cpp:0.0.1 \
+    jhleeeme/cpp:dev \
     bin/bash
