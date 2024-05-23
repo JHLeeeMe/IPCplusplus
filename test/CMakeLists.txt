@@ -29,6 +29,13 @@ add_executable(IPCplusplus_Test
     ${HDR_G}
 )
 
+# Set target postfix
+set_target_properties(IPCplusplus_Test
+    PROPERTIES
+        DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
+        RELWITHDEBINFO_POSTFIX ${CMAKE_RELWITHDEBINFO_POSTFIX}
+)
+
 # -I
 target_include_directories(IPCplusplus_Test
     PUBLIC
