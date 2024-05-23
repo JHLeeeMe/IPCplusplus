@@ -22,14 +22,13 @@
 #include <iostream>
 #include <stdexcept>  // runtime_error()
 
-#define __IPCPLUSPLUS_BEGIN    namespace IPCplusplus {
+#define __IPCPLUSPLUS_BEGIN    namespace ipcplusplus {
 #define __IPCPLUSPLUS_END      }
 
-#define __SYSV_BEGIN    namespace sysv {
-#define __SYSV_END      }
-
 __IPCPLUSPLUS_BEGIN
-__SYSV_BEGIN
+namespace sysv
+{
+
 namespace utils
 {
     inline key_t create_key(const std::string& path, const uint8_t proj_id)
@@ -41,7 +40,7 @@ namespace utils
 
         return ::ftok(path.c_str(), proj_id);
     }
-}  // ::IPCplusplus::sysv::utils
+}  // ::ipcplusplus::sysv::utils
 
 namespace mq
 {
@@ -272,11 +271,12 @@ namespace mq
 
         ssize_t err_;
     };
-}  // ::IPCplusplus::sysv::mq
-__SYSV_END
+}  // ::ipcplusplus::sysv::mq
+
+}
 __IPCPLUSPLUS_END
 
-namespace sysv = ::IPCplusplus::sysv;
+namespace sysv = ::ipcplusplus::sysv;
 
 
 #endif  // MQUEUE_H

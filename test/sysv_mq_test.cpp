@@ -6,10 +6,11 @@
 
 #include "gtest/gtest.h"
 
-#include "sysv/sysv_mq.h"
+//#include "ipcplusplus.h"
+#include "ipcplusplus/sysv/sysv_mq.h"
 
 TEST(utils, create_key)
-{ // IPCplusplus::sysv::utils
+{ // ::ipcplusplus::sysv::utils
     ASSERT_EQ(-1, sysv::utils::create_key("./", 0));
     ASSERT_EQ(-1, sysv::utils::create_key("./", 256));
     ASSERT_NE(-1, sysv::utils::create_key("./", -1));
@@ -19,7 +20,7 @@ TEST(utils, create_key)
 }
 
 TEST(mq, ePermission)
-{  // IPCplusplus::sysv::mq
+{  // ::ipcplusplus::sysv::mq
     using ePermission_Ty = sysv::mq::ePermission;
 
     ASSERT_EQ(0666, static_cast<uint32_t>(ePermission_Ty::RWRWRW));
@@ -32,13 +33,13 @@ TEST(mq, ePermission)
 }
 
 TEST(mq, MQueue)
-{  // IPCplusplus::sysv::mq
+{  // ::ipcplusplus::sysv::mq
     using ePermission_Ty = sysv::mq::ePermission;
     using MQueue_Ty      = sysv::mq::MQueue;
 
-    const key_t    key = sysv::utils::create_key("./", 255);
-    ePermission_Ty flag{ ePermission_Ty::RWR_R_ };
-    MQueue_Ty mqueue{ key, flag };
+    const key_t    key   = sysv::utils::create_key("./", 255);
+    ePermission_Ty flag  { ePermission_Ty::RWR_R_ };
+    MQueue_Ty      mqueue{ key, flag };
     if (mqueue.err() != 0)
     {
         std::cout << "mqueue.err() != 0" << std::endl;
