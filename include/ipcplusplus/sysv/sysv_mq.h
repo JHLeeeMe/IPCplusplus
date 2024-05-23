@@ -8,7 +8,7 @@
 /// ----------------------------------------------------------------------------
 /// namespace ipcplusplus
 /// {
-/// namespace bpfapture
+/// namespace sysv
 /// {
 ///     // Declarations
 ///     namespace utils { ... }
