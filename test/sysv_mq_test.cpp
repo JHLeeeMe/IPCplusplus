@@ -51,25 +51,25 @@ TEST(mq, MQueue)
     ASSERT_THROW(MQueue_Ty mq(key, flag), std::runtime_error);
 
     {  // change_permision()
-        ASSERT_EQ(0644, static_cast<uint16_t>(mqueue.get_permission()));
+        ASSERT_EQ(0644, static_cast<uint16_t>(mqueue.permission()));
 
         flag = ePermission_Ty::_W____ |
                ePermission_Ty::___W__ |
                ePermission_Ty::____R_;
         mqueue.change_permission(flag);
 
-        ASSERT_EQ(0224, static_cast<uint16_t>(mqueue.get_permission()));
+        ASSERT_EQ(0224, static_cast<uint16_t>(mqueue.permission()));
     }
 
-    {  // get_queue_info()
-        struct msqid_ds info{ mqueue.get_queue_info() };
+    {  // queue_info()
+        struct msqid_ds info{ mqueue.queue_info() };
         ASSERT_EQ(typeid(struct msqid_ds), typeid(info));
 
         flag = (ePermission_Ty::RW____ |
                 ePermission_Ty::__RW__ |
                 ePermission_Ty::____RW);
         mqueue.change_permission(flag);
-        struct msqid_ds info_1{ mqueue.get_queue_info() };
+        struct msqid_ds info_1{ mqueue.queue_info() };
         ASSERT_EQ(static_cast<uint16_t>(flag), info_1.msg_perm.mode);
     }
 

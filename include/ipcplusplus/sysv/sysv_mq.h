@@ -1,25 +1,42 @@
 /// ============================================================================
 /// sysv_mq.h
 /// ----------------------------------------------------------------------------
-/// Message Queue (System V IPC)
+/// Message Queue (System V IPC) Header-Only library
 ///
 /// ----------------------------------------------------------------------------
 /// Code Structure
 /// ----------------------------------------------------------------------------
+/// namespace ipcplusplus
+/// {
+/// namespace bpfapture
+/// {
+///     // Declarations
+///     namespace utils { ... }
+///     namespace mq { ... }
+///
+///     // Implementations
+///     namespace utils { ... }
+///     namespace mq
+///     {
+///         inline MQueue::xxx { ... };
+///         ...
+///     }
+/// }
+/// }
+/// using sysv = ::ipcplusplus::sysv;
 ///
 /// ----------------------------------------------------------------------------
-/// License: The Unlicense <http://unlicense.org/>
+/// License: The Unlicense <https://unlicense.org/>
 /// ============================================================================
 
-#ifndef MQUEUE_H
-#define MQUEUE_H
+#ifndef SYSV_MQ_H
+#define SYSV_MQ_H
 
 
 #include <sys/ipc.h>  // ftok()
 #include <sys/msg.h>  // msgctl(), msgget(), ...
-#include <string.h>   // memcpy()
 
-#include <iostream>
+#include <cstring>    // memcpy()
 #include <stdexcept>  // runtime_error()
 
 #define __IPCPLUSPLUS_BEGIN    namespace ipcplusplus {
@@ -28,6 +45,84 @@
 __IPCPLUSPLUS_BEGIN
 namespace sysv
 {
+
+/// ============================================================================
+/// Decalarations
+/// ============================================================================
+
+namespace utils
+{
+    inline key_t create_key(const std::string& path, const uint8_t proj_id);
+}  // ::ipcplusplus::sysv::utils
+
+namespace mq
+{
+    enum class ePermission
+    {
+        R_____ = 0400, RW____ = 0600,
+        _W____ = 0200, __RW__ = 0060,
+        __R___ = 0040, ____RW = 0006,
+        ___W__ = 0020, RWRWRW = 0666,
+        ____R_ = 0004, RWR_R_ = 0644,
+        _____W = 0002, RW_W_W = 0622,
+    };
+
+    inline ePermission operator|(ePermission lhs, ePermission rhs);
+
+    class MQueue
+    {
+    public:  // rule of 5
+        explicit MQueue(const key_t key);
+        explicit MQueue(const key_t key, ePermission perm);
+        explicit MQueue(const key_t key, const size_t payload_max_size);
+        explicit MQueue(const key_t key,
+                        ePermission perm,
+                        const size_t payload_max_size);
+        ~MQueue();
+
+        MQueue(const MQueue&) = delete;
+        MQueue& operator=(const MQueue&) = delete;
+
+        MQueue(MQueue&&) = delete;
+        MQueue& operator=(MQueue&&) = delete;
+    public:
+        auto change_permission(ePermission perm) -> ssize_t;
+        auto set_msg_buf_size(const size_t size) -> void;
+
+        auto send(const std::string& msg, const long msg_type = 0) -> ssize_t;
+        auto send_nowait(const std::string& msg,
+                         const long msg_type = 0) -> ssize_t;
+        auto receive(const long msg_type) -> ssize_t;
+        auto receive_nowait(const long msg_type) -> ssize_t;
+
+        auto permission() const -> ePermission;
+        auto queue_info() const -> struct msqid_ds;
+        auto msg()        const -> std::string;
+        auto err()        const -> ssize_t;
+
+    private:
+        auto create_queue(ePermission perm) -> ssize_t;
+        auto remove_queue() -> ssize_t;
+        auto set_msg_buf(const std::string& msg,
+                         const long msg_type) -> void;
+    private:
+        key_t key_;
+
+        int32_t         queue_id_;
+        struct msqid_ds queue_info_;
+        ePermission     permission_;
+
+        std::vector<uint8_t> msg_buf_;
+        size_t               payload_max_size_;
+
+        ssize_t err_;
+    };
+}  // ::ipcplusplus::sysv::mq
+
+
+/// ============================================================================
+/// Implementations
+/// ============================================================================
 
 namespace utils
 {
@@ -44,16 +139,6 @@ namespace utils
 
 namespace mq
 {
-    enum class ePermission
-    {
-        R_____ = 0400, RW____ = 0600,
-        _W____ = 0200, __RW__ = 0060,
-        __R___ = 0040, ____RW = 0006,
-        ___W__ = 0020, RWRWRW = 0666,
-        ____R_ = 0004, RWR_R_ = 0644,
-        _____W = 0002, RW_W_W = 0622,
-    };
-
     inline ePermission operator|(ePermission lhs, ePermission rhs)
     {
         return static_cast<ePermission>(
@@ -61,222 +146,233 @@ namespace mq
         );
     }
 
-    class MQueue
-    {
-    public:  // rule of five
-        MQueue(const key_t key, ePermission perm = ePermission::RWR_R_)
-            : key_{ key }
-            , queue_id_{}
-            , queue_info_{}
-            , permission_{}
-            , msg_buf_{}
-            , payload_max_size_{ 128 }
-            , err_{}
-        {
-            if (create_queue(perm) < 0)
-            {
-                if (err_ == EEXIST)
-                {
-                    throw std::runtime_error("Queue already exists");
-                }
+    /// ========================================================================
+    /// MQueue rule of 5
+    /// ========================================================================
 
-                throw std::runtime_error("Error: " + std::to_string(err_));
+    MQueue::MQueue(const key_t key)
+        : MQueue(key, ePermission::RWR_R_, 128)
+    {
+    }
+
+    MQueue::MQueue(const key_t key, ePermission perm)
+        : MQueue(key, perm, 128)
+    {
+    }
+
+    MQueue::MQueue(const key_t key, const size_t payload_max_size)
+        : MQueue(key, ePermission::RWR_R_, payload_max_size)
+    {
+    }
+
+    MQueue::MQueue(const key_t key,
+                   ePermission perm,
+                   const size_t payload_max_size)
+        : key_{ key }
+        , queue_id_{}
+        , queue_info_{}
+        , permission_{}
+        , msg_buf_{}
+        , payload_max_size_{}
+        , err_{}
+    {
+        if (create_queue(perm) < 0)
+        {
+            if (err_ == EEXIST)
+            {
+                throw std::runtime_error("Queue already exists");
             }
 
+            throw std::runtime_error("Error: " + std::to_string(err_));
+        }
+
+        try
+        {
             if (::msgctl(queue_id_, IPC_STAT, &queue_info_) < 0)
             {
                 throw std::runtime_error("Error: " + std::to_string(err_));
             }
 
             permission_ = static_cast<ePermission>(queue_info_.msg_perm.mode);
-            set_msg_buf_size(sizeof(long) + sizeof(size_t) + payload_max_size_);
+            set_msg_buf_size(sizeof(long) + sizeof(size_t) + payload_max_size);
         }
-
-        ~MQueue()
+        catch (...)
         {
-            if (remove_queue() < 0)
-            {
-                throw std::runtime_error("Error: " + std::to_string(err_));
-            }
+            remove_queue();
+            throw;
         }
+    }
 
-        MQueue(const MQueue&) = delete;
-        MQueue& operator=(const MQueue&) = delete;
+    MQueue::~MQueue()
+    {
+        remove_queue();
+    }
 
-        MQueue(MQueue&&) = delete;
-        MQueue& operator=(MQueue&&) = delete;
-
-    public:
-        inline ssize_t change_permission(ePermission perm)
+    inline auto MQueue::change_permission(ePermission perm) -> ssize_t
+    {
+        queue_info_.msg_perm.mode = static_cast<uint32_t>(perm);
+        if (::msgctl(queue_id_, IPC_SET, &queue_info_) < 0)
         {
-            queue_info_.msg_perm.mode = static_cast<uint32_t>(perm);
-            if (::msgctl(queue_id_, IPC_SET, &queue_info_) < 0)
-            {
-                err_ = errno;
-                return -1;
-            }
-
-            permission_ = perm;
-
-            return 0;
+            queue_info_.msg_perm.mode = static_cast<uint32_t>(permission_);
+            err_ = errno;
+            return -1;
         }
 
-        inline ssize_t send(const std::string& msg, const long msg_type = 0)
+        permission_ = perm;
+
+        return 0;
+    }
+
+    inline auto MQueue::set_msg_buf_size(const size_t size) -> void
+    {
+        msg_buf_.reserve(size);
+        payload_max_size_ = size - sizeof(long);
+    }
+
+    inline auto MQueue::send(const std::string& msg,
+                             const long msg_type) -> ssize_t
+    {
+        set_msg_buf(msg, msg_type);
+
+        if (::msgsnd(queue_id_,
+                        msg_buf_.data(),
+                        sizeof(size_t) + msg.length(), 0) < 0)
         {
-            set_msg_buf(msg, msg_type);
-
-            if (::msgsnd(queue_id_,
-                         msg_buf_.data(),
-                         sizeof(size_t) + msg.length(), 0) < 0)
-            {
-                err_ = errno;
-                return -1;
-            }
-
-            return 0;
+            err_ = errno;
+            return -1;
         }
 
-        inline ssize_t send_nowait(const std::string& msg, const long msg_type = 0)
+        return 0;
+    }
+
+    inline auto MQueue::send_nowait(const std::string& msg,
+                                    const long msg_type) -> ssize_t
+    {
+        set_msg_buf(msg, msg_type);
+
+        if (::msgsnd(queue_id_,
+                        msg_buf_.data(),
+                        sizeof(size_t) + msg.length(), IPC_NOWAIT) < 0)
         {
-            set_msg_buf(msg, msg_type);
-
-            if (::msgsnd(queue_id_,
-                         msg_buf_.data(),
-                         sizeof(size_t) + msg.length(), IPC_NOWAIT) < 0)
-            {
-                err_ = errno;
-                return -1;
-            }
-
-            return 0;
+            err_ = errno;
+            return -1;
         }
 
-        inline ssize_t receive(const long msg_type)
+        return 0;
+    }
+
+    inline auto MQueue::receive(const long msg_type) -> ssize_t
+    {
+        msg_buf_.clear();
+        msg_buf_.resize(sizeof(msg_type) + sizeof(size_t) + payload_max_size_);
+
+        if (::msgrcv(queue_id_,
+                        msg_buf_.data(),
+                        sizeof(size_t) + payload_max_size_,
+                        msg_type, 0) < 0)
         {
-            msg_buf_.clear();
-            msg_buf_.resize(sizeof(msg_type) + sizeof(size_t) + payload_max_size_);
-
-            if (::msgrcv(queue_id_,
-                         msg_buf_.data(),
-                         sizeof(size_t) + payload_max_size_,
-                         msg_type, 0) < 0)
-            {
-                err_ = errno;
-                return -1;
-            }
-
-            return 0;
+            err_ = errno;
+            return -1;
         }
 
-        inline ssize_t receive_nowait(const long msg_type)
+        return 0;
+    }
+
+    inline auto MQueue::receive_nowait(const long msg_type) -> ssize_t
+    {
+        msg_buf_.clear();
+        msg_buf_.resize(sizeof(msg_type) + sizeof(size_t) + payload_max_size_);
+
+        if (::msgrcv(queue_id_,
+                        msg_buf_.data(),
+                        sizeof(size_t) + payload_max_size_,
+                        msg_type, IPC_NOWAIT) < 0)
         {
-            msg_buf_.clear();
-            msg_buf_.resize(sizeof(msg_type) + sizeof(size_t) + payload_max_size_);
-
-            if (::msgrcv(queue_id_,
-                         msg_buf_.data(),
-                         sizeof(size_t) + payload_max_size_,
-                         msg_type, IPC_NOWAIT) < 0)
-            {
-                err_ = errno;
-                return -1;
-            }
-
-            return 0;
+            err_ = errno;
+            return -1;
         }
 
-        inline void set_msg_buf_size(const size_t size)
+        return 0;
+    }
+
+    inline auto MQueue::permission() const -> ePermission
+    {
+        return permission_;
+    }
+
+    inline auto MQueue::queue_info() const -> struct msqid_ds
+    {
+        return queue_info_;
+    }
+
+    inline auto MQueue::msg() const -> std::string
+    {
+        const size_t* msg_len = reinterpret_cast<const size_t*>(msg_buf_.data() + sizeof(long));
+        return std::string(msg_buf_.begin() + sizeof(long) + sizeof(size_t),
+                            msg_buf_.begin() + sizeof(long) + sizeof(size_t) + *msg_len);
+    }
+
+    inline auto MQueue::err() const -> ssize_t
+    {
+        return err_;
+    }
+
+    inline auto MQueue::create_queue(ePermission perm) -> ssize_t
+    {
+        queue_id_ = ::msgget(key_, IPC_CREAT | IPC_EXCL |
+                                    static_cast<uint32_t>(perm));
+        if (queue_id_ < 0)
         {
-            msg_buf_.reserve(size);
-            payload_max_size_ = size - sizeof(long);
+            err_ = errno;
+            return -1;
         }
 
-        inline ePermission get_permission() const
+        return 0;
+    }
+
+    inline auto MQueue::remove_queue() -> ssize_t
+    {
+        if (::msgget(key_, 0) < 0)
         {
-            return permission_;
+            err_ = errno;
+            return -1;
         }
 
-        inline struct msqid_ds get_queue_info() const
+        if (::msgctl(queue_id_, IPC_RMID, nullptr) < 0)
         {
-            return queue_info_;
+            err_ = errno;
+            return -1;
         }
 
-        inline std::string msg() const
-        {
-            const size_t* msg_len = reinterpret_cast<const size_t*>(msg_buf_.data() + sizeof(long));
-            return std::string(msg_buf_.begin() + sizeof(long) + sizeof(size_t),
-                               msg_buf_.begin() + sizeof(long) + sizeof(size_t) + *msg_len);
-        }
+        return 0;
+    }
 
-        inline ssize_t err() const
-        {
-            return err_;
-        }
+    inline auto MQueue::set_msg_buf(const std::string& msg,
+                                    const long msg_type) -> void
+    {
+        const size_t msg_len = msg.length();
 
-    private:
-        inline ssize_t create_queue(ePermission perm)
-        {
-            queue_id_ = ::msgget(key_, IPC_CREAT | IPC_EXCL |
-                                       static_cast<uint32_t>(perm));
-            if (queue_id_ < 0)
-            {
-                err_ = errno;
-                return -1;
-            }
+        msg_buf_.clear();
+        msg_buf_.resize(sizeof(msg_type) + sizeof(msg_len) + msg_len);
 
-            return 0;
-        }
-
-        inline ssize_t remove_queue()
-        {
-            if (::msgget(key_, 0) < 0)
-            {
-                err_ = errno;
-                return -1;
-            }
-
-            if (::msgctl(queue_id_, IPC_RMID, nullptr) < 0)
-            {
-                err_ = errno;
-                return -1;
-            }
-
-            return 0;
-        }
-
-        inline void set_msg_buf(const std::string& msg, const long msg_type)
-        {
-            const size_t msg_len = msg.length();
-
-            msg_buf_.clear();
-            msg_buf_.resize(sizeof(msg_type) + sizeof(msg_len) + msg_len);
-
-            memcpy(msg_buf_.data(),
-                   &msg_type, sizeof(long));
-            memcpy(msg_buf_.data() + sizeof(msg_type),
-                   &msg_len, sizeof(msg_len));
-            memcpy(msg_buf_.data() + sizeof(msg_type) + sizeof(msg_len),
-                   msg.c_str(), msg.length());
-        }
-
-    private:
-        key_t key_;
-
-        int32_t         queue_id_;
-        struct msqid_ds queue_info_;
-        ePermission     permission_;
-
-        std::vector<uint8_t> msg_buf_;
-        size_t               payload_max_size_;
-
-        ssize_t err_;
-    };
+        memcpy(msg_buf_.data(),
+               &msg_type, sizeof(long));
+        memcpy(msg_buf_.data() + sizeof(msg_type),
+               &msg_len, sizeof(msg_len));
+        memcpy(msg_buf_.data() + sizeof(msg_type) + sizeof(msg_len),
+               msg.c_str(), msg.length());
+    }
 }  // ::ipcplusplus::sysv::mq
 
-}
+}  // ::ipcplusplus::sysv
 __IPCPLUSPLUS_END
+
+
+/// ============================================================================
+/// namespace alias
+/// ============================================================================
 
 namespace sysv = ::ipcplusplus::sysv;
 
 
-#endif  // MQUEUE_H
+#endif  // SYSV_MQ_H
