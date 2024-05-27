@@ -38,6 +38,7 @@
 
 #include <cstring>    // memcpy()
 #include <stdexcept>  // runtime_error()
+#include <vector>     // vector
 
 #define __IPCPLUSPLUS_BEGIN    namespace ipcplusplus {
 #define __IPCPLUSPLUS_END      }
@@ -52,7 +53,7 @@ namespace sysv
 
 namespace utils
 {
-    inline key_t create_key(const std::string& path, const uint8_t proj_id);
+    key_t create_key(const std::string& path, const uint8_t proj_id);
 }  // ::ipcplusplus::sysv::utils
 
 namespace mq
@@ -67,7 +68,7 @@ namespace mq
         _____W = 0002, RW_W_W = 0622,
     };
 
-    inline ePermission operator|(ePermission lhs, ePermission rhs);
+    ePermission operator|(ePermission lhs, ePermission rhs);
 
     class MQueue
     {
@@ -142,8 +143,7 @@ namespace mq
     inline ePermission operator|(ePermission lhs, ePermission rhs)
     {
         return static_cast<ePermission>(
-            static_cast<uint16_t>(lhs) | static_cast<uint16_t>(rhs)
-        );
+            static_cast<uint16_t>(lhs) | static_cast<uint16_t>(rhs));
     }
 
     /// ========================================================================
@@ -235,8 +235,8 @@ namespace mq
         set_msg_buf(msg, msg_type);
 
         if (::msgsnd(queue_id_,
-                        msg_buf_.data(),
-                        sizeof(size_t) + msg.length(), 0) < 0)
+                     msg_buf_.data(),
+                     sizeof(size_t) + msg.length(), 0) < 0)
         {
             err_ = errno;
             return -1;
@@ -251,8 +251,8 @@ namespace mq
         set_msg_buf(msg, msg_type);
 
         if (::msgsnd(queue_id_,
-                        msg_buf_.data(),
-                        sizeof(size_t) + msg.length(), IPC_NOWAIT) < 0)
+                     msg_buf_.data(),
+                     sizeof(size_t) + msg.length(), IPC_NOWAIT) < 0)
         {
             err_ = errno;
             return -1;
@@ -267,9 +267,9 @@ namespace mq
         msg_buf_.resize(sizeof(msg_type) + sizeof(size_t) + payload_max_size_);
 
         if (::msgrcv(queue_id_,
-                        msg_buf_.data(),
-                        sizeof(size_t) + payload_max_size_,
-                        msg_type, 0) < 0)
+                     msg_buf_.data(),
+                     sizeof(size_t) + payload_max_size_,
+                     msg_type, 0) < 0)
         {
             err_ = errno;
             return -1;
@@ -284,9 +284,9 @@ namespace mq
         msg_buf_.resize(sizeof(msg_type) + sizeof(size_t) + payload_max_size_);
 
         if (::msgrcv(queue_id_,
-                        msg_buf_.data(),
-                        sizeof(size_t) + payload_max_size_,
-                        msg_type, IPC_NOWAIT) < 0)
+                     msg_buf_.data(),
+                     sizeof(size_t) + payload_max_size_,
+                     msg_type, IPC_NOWAIT) < 0)
         {
             err_ = errno;
             return -1;
@@ -307,9 +307,11 @@ namespace mq
 
     inline auto MQueue::msg() const -> std::string
     {
-        const size_t* msg_len = reinterpret_cast<const size_t*>(msg_buf_.data() + sizeof(long));
-        return std::string(msg_buf_.begin() + sizeof(long) + sizeof(size_t),
-                            msg_buf_.begin() + sizeof(long) + sizeof(size_t) + *msg_len);
+        const size_t* msg_len =
+            reinterpret_cast<const size_t*>(msg_buf_.data() + sizeof(long));
+        return std::string(
+            msg_buf_.begin() + sizeof(long) + sizeof(size_t),
+            msg_buf_.begin() + sizeof(long) + sizeof(size_t) + *msg_len);
     }
 
     inline auto MQueue::err() const -> ssize_t
@@ -320,7 +322,7 @@ namespace mq
     inline auto MQueue::create_queue(ePermission perm) -> ssize_t
     {
         queue_id_ = ::msgget(key_, IPC_CREAT | IPC_EXCL |
-                                    static_cast<uint32_t>(perm));
+                                   static_cast<uint32_t>(perm));
         if (queue_id_ < 0)
         {
             err_ = errno;
