@@ -1,4 +1,4 @@
-### ./test/CMakeLists.txt
+### /test/CMakeLists.txt
 ###
 
 # Clone GoogleTest
@@ -23,28 +23,32 @@ file(GLOB_RECURSE HDR_G
     ${CMAKE_SOURCE_DIR}/include/*.hpp
 )
 
-# Create Target (IPCplusplus_Test)
-add_executable(IPCplusplus_Test
-    ${SRC_G}
-    ${HDR_G}
-)
+foreach(SOURCE_FILE ${SRC_G})
+    get_filename_component(SOURCE_NAME ${SOURCE_FILE} NAME_WE)
 
-# Set target postfix
-set_target_properties(IPCplusplus_Test
-    PROPERTIES
-        DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
-        RELWITHDEBINFO_POSTFIX ${CMAKE_RELWITHDEBINFO_POSTFIX}
-)
+    # Create Target
+    add_executable(${SOURCE_NAME}
+        ${SOURCE_FILE}
+        ${HDR_G}
+    )
 
-# -I
-target_include_directories(IPCplusplus_Test
-    PUBLIC
-        ${CMAKE_SOURCE_DIR}/include
-)
+    # Set target postfix
+    set_target_properties(${SOURCE_NAME}
+        PROPERTIES
+            DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
+            RELWITHDEBINFO_POSTFIX ${CMAKE_RELWITHDEBINFO_POSTFIX}
+    )
 
-# -l
-target_link_libraries(IPCplusplus_Test
-    PUBLIC 
-        gtest
-        gtest_main
-)
+    # -I
+    target_include_directories(${SOURCE_NAME}
+        PUBLIC
+            ${CMAKE_SOURCE_DIR}/include
+    )
+
+    # -l
+    target_link_libraries(${SOURCE_NAME}
+        PUBLIC 
+            gtest
+            gtest_main
+    )
+endforeach()
