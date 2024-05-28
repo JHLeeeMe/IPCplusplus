@@ -88,7 +88,6 @@ namespace mq
         MQueue& operator=(MQueue&&) = delete;
     public:
         auto change_permission(ePermission perm) -> ssize_t;
-        auto set_msg_buf_size(const size_t size) -> void;
 
         auto send(const std::string& msg, const long msg_type = 0) -> ssize_t;
         auto send_nowait(const std::string& msg,
@@ -109,6 +108,7 @@ namespace mq
     private:
         key_t key_;
 
+        bool            queue_owner_;
         int32_t         queue_id_;
         struct msqid_ds queue_info_;
         ePermission     permission_;
@@ -169,21 +169,29 @@ namespace mq
                    ePermission perm,
                    const size_t payload_max_size)
         : key_{ key }
+        , queue_owner_{ true }
         , queue_id_{}
         , queue_info_{}
         , permission_{}
         , msg_buf_{}
-        , payload_max_size_{}
+        , payload_max_size_{ payload_max_size }
         , err_{}
     {
         if (create_queue(perm) < 0)
         {
-            if (err_ == EEXIST)
+            if (err_ != EEXIST)
             {
-                throw std::runtime_error("Queue already exists");
+                throw std::runtime_error("Error: " + std::to_string(err_));
             }
 
-            throw std::runtime_error("Error: " + std::to_string(err_));
+            err_ = 0;
+            if ((queue_id_ = ::msgget(key_, 0)) < 0)
+            {
+                err_ = errno;
+                throw std::runtime_error(
+                    "Error accessing existing queue: " + std::to_string(err_));
+            }
+            queue_owner_ = false;
         }
 
         try
@@ -194,18 +202,24 @@ namespace mq
             }
 
             permission_ = static_cast<ePermission>(queue_info_.msg_perm.mode);
-            set_msg_buf_size(sizeof(long) + sizeof(size_t) + payload_max_size);
+            msg_buf_.reserve(sizeof(long) + sizeof(size_t) + payload_max_size_);
         }
         catch (...)
         {
-            remove_queue();
+            if (queue_owner_)
+            {
+                remove_queue();
+            }
             throw;
         }
     }
 
     MQueue::~MQueue()
     {
-        remove_queue();
+        if (queue_owner_)
+        {
+            remove_queue();
+        }
     }
 
     inline auto MQueue::change_permission(ePermission perm) -> ssize_t
@@ -221,12 +235,6 @@ namespace mq
         permission_ = perm;
 
         return 0;
-    }
-
-    inline auto MQueue::set_msg_buf_size(const size_t size) -> void
-    {
-        msg_buf_.reserve(size);
-        payload_max_size_ = size - sizeof(long);
     }
 
     inline auto MQueue::send(const std::string& msg,

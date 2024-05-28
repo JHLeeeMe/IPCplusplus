@@ -46,9 +46,40 @@ TEST(mq, MQueue)
         return;
     }
 
-    ASSERT_EQ(0, mqueue.err());
+    ASSERT_NO_THROW(MQueue_Ty mq(key, flag));
 
-    ASSERT_THROW(MQueue_Ty mq(key, flag), std::runtime_error);
+    {  // Queue Already exists. (errno == EEXIST)
+        const key_t    key_1   = sysv::utils::create_key("./", 1);
+
+        ePermission_Ty flag_1  { ePermission_Ty::RWRWRW };
+        MQueue_Ty      mqueue_1{ key_1, flag_1 };
+        if (mqueue_1.err() != 0)
+        {
+            std::cout << "mqueue_1.err() != 0" << std::endl;
+            return;
+        }
+
+        ePermission_Ty flag_2  { ePermission_Ty::RWR_R_ };
+        MQueue_Ty      mqueue_2{ key_1, flag_2, 1000 };
+        if (mqueue_2.err() != 0)
+        {
+            std::cout << "mqueue_2.err() != 0" << std::endl;
+            return;
+        }
+
+        ASSERT_EQ(
+            static_cast<uint16_t>(mqueue_1.permission()),
+            static_cast<uint16_t>(mqueue_2.permission())
+        );
+        ASSERT_EQ(
+            mqueue_1.queue_info().msg_ctime,
+            mqueue_2.queue_info().msg_ctime
+        );
+        ASSERT_EQ(
+            mqueue_1.queue_info().msg_perm.mode,
+            mqueue_2.queue_info().msg_perm.mode
+        );
+    }
 
     {  // change_permision()
         ASSERT_EQ(0644, static_cast<uint16_t>(mqueue.permission()));
