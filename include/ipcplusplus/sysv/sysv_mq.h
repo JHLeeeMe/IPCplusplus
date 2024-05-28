@@ -146,26 +146,27 @@ namespace mq
             static_cast<uint16_t>(lhs) | static_cast<uint16_t>(rhs));
     }
 
+
     /// ========================================================================
     /// MQueue rule of 5
     /// ========================================================================
 
-    MQueue::MQueue(const key_t key)
+    inline MQueue::MQueue(const key_t key)
         : MQueue(key, ePermission::RWR_R_, 128)
     {
     }
 
-    MQueue::MQueue(const key_t key, ePermission perm)
+    inline MQueue::MQueue(const key_t key, ePermission perm)
         : MQueue(key, perm, 128)
     {
     }
 
-    MQueue::MQueue(const key_t key, const size_t payload_max_size)
+    inline MQueue::MQueue(const key_t key, const size_t payload_max_size)
         : MQueue(key, ePermission::RWR_R_, payload_max_size)
     {
     }
 
-    MQueue::MQueue(const key_t key,
+    inline MQueue::MQueue(const key_t key,
                    ePermission perm,
                    const size_t payload_max_size)
         : key_{ key }
@@ -214,13 +215,18 @@ namespace mq
         }
     }
 
-    MQueue::~MQueue()
+    inline MQueue::~MQueue()
     {
         if (queue_owner_)
         {
             remove_queue();
         }
     }
+
+
+    /// ========================================================================
+    /// MQueue public methods
+    /// ========================================================================
 
     inline auto MQueue::change_permission(ePermission perm) -> ssize_t
     {
@@ -326,6 +332,11 @@ namespace mq
     {
         return err_;
     }
+
+
+    /// ========================================================================
+    /// MQueue private methods
+    /// ========================================================================
 
     inline auto MQueue::create_queue(ePermission perm) -> ssize_t
     {
