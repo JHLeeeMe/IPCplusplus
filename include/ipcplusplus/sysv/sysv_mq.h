@@ -84,8 +84,8 @@ namespace mq
         MQueue(const MQueue&) = delete;
         MQueue& operator=(const MQueue&) = delete;
 
-        MQueue(MQueue&&) = delete;
-        MQueue& operator=(MQueue&&) = delete;
+        MQueue(MQueue&& other) noexcept;
+        MQueue& operator=(MQueue&& other) noexcept;
     public:
         auto change_permission(ePermission perm) -> ssize_t;
 
@@ -167,8 +167,8 @@ namespace mq
     }
 
     inline MQueue::MQueue(const key_t key,
-                   ePermission perm,
-                   const size_t payload_max_size)
+                          ePermission perm,
+                          const size_t payload_max_size)
         : key_{ key }
         , queue_owner_{ true }
         , queue_id_{}
@@ -217,10 +217,51 @@ namespace mq
 
     inline MQueue::~MQueue()
     {
-        if (queue_owner_)
+        if (queue_id_ == -1)
         {
-            remove_queue();
+            return;
         }
+
+        if (!queue_owner_)
+        {
+            return;
+        }
+
+        remove_queue();
+    }
+
+    inline MQueue::MQueue(MQueue&& other) noexcept
+        : key_{ other.key_ }
+        , queue_owner_{ other.queue_owner_ }
+        , queue_id_{ other.queue_id_ }
+        , queue_info_{ other.queue_info_ }
+        , permission_{ other.permission_ }
+        , msg_buf_{ other.msg_buf_ }
+        , payload_max_size_{ other.payload_max_size_ }
+        , err_{ other.err_ }
+    {
+        other.queue_id_ = -1;
+        other.err_ = 0;
+    }
+
+    inline MQueue& MQueue::operator=(MQueue&& other) noexcept
+    {
+        if (this != &other)
+        {
+            key_ = other.key_;
+            queue_owner_ = other.queue_owner_;
+            queue_id_ = other.queue_id_;
+            queue_info_ = other.queue_info_;
+            permission_ = other.permission_;
+            msg_buf_ = other.msg_buf_;
+            payload_max_size_ = other.payload_max_size_;
+            err_ = other.err_;
+
+            other.queue_id_ = -1;
+            other.err_ = 0;
+        }
+
+        return *this;
     }
 
 
@@ -321,7 +362,7 @@ namespace mq
 
     inline auto MQueue::msg() const -> std::string
     {
-        const size_t* msg_len =
+        auto msg_len =
             reinterpret_cast<const size_t*>(msg_buf_.data() + sizeof(long));
         return std::string(
             msg_buf_.begin() + sizeof(long) + sizeof(size_t),
