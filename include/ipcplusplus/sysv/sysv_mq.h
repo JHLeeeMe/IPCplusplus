@@ -23,7 +23,7 @@
 ///     }
 /// }
 /// }
-/// using sysv = ::ipcplusplus::sysv;
+/// namespace sysv = ::ipcplusplus::sysv;
 ///
 /// ----------------------------------------------------------------------------
 /// License: The Unlicense <https://unlicense.org/>
