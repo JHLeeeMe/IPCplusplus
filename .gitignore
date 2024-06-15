@@ -32,6 +32,8 @@
 *.app
 
 # Custom
+.idea/
 .vs/
 .vscode/
 build/
+cmake-*/
