@@ -11,7 +11,7 @@ int main()
     namespace mq    = sysv::mq;
 
     const key_t     key   = utils::create_key("./", 255);
-    mq::ePermission flag  { mq::ePermission::RWRWRW };
+    mq::ePermission flag  { mq::ePermission::ALL };
     mq::MQueue      mqueue{ key, flag };
     if (mqueue.err() != 0)
     {
@@ -19,12 +19,12 @@ int main()
         return 1;
     }
 
-    flag = (mq::ePermission::RW____ |
-            mq::ePermission::__R___ |
-            mq::ePermission::____R_);
+    flag = (mq::ePermission::URW |
+            mq::ePermission::GR |
+            mq::ePermission::OR);
     mqueue.change_permission(flag);
 
-    const long mtype = 21;
+    constexpr long mtype = 21;
     for (size_t i = 0; i < 10; i++)
     {
         //if (mqueue.send(std::to_string(i), mtype) < 0)

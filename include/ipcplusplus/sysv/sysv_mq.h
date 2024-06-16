@@ -40,10 +40,10 @@
 #include <stdexcept>  // runtime_error()
 #include <vector>     // vector
 
-#define __IPCPLUSPLUS_BEGIN    namespace ipcplusplus {
-#define __IPCPLUSPLUS_END      }
+#define IPCPLUSPLUS_BEGIN_    namespace ipcplusplus {
+#define IPCPLUSPLUS_END_      }
 
-__IPCPLUSPLUS_BEGIN
+IPCPLUSPLUS_BEGIN_
 namespace sysv
 {
 
@@ -60,12 +60,12 @@ namespace mq
 {
     enum class ePermission
     {
-        R_____ = 0400, RW____ = 0600,
-        _W____ = 0200, __RW__ = 0060,
-        __R___ = 0040, ____RW = 0006,
-        ___W__ = 0020, RWRWRW = 0666,
-        ____R_ = 0004, RWR_R_ = 0644,
-        _____W = 0002, RW_W_W = 0622,
+        UR = 0400, URW = 0600,
+        UW = 0200, GRW = 0060,
+        GR = 0040, ORW = 0006,
+        GW = 0020, URWGROR = 0644,
+        OR = 0004, URWGWOW = 0622,
+        OW = 0002, ALL = 0666,
     };
 
     ePermission operator|(ePermission lhs, ePermission rhs);
@@ -152,22 +152,22 @@ namespace mq
     /// ========================================================================
 
     inline MQueue::MQueue(const key_t key)
-        : MQueue(key, ePermission::RWR_R_, 128)
+        : MQueue(key, ePermission::URWGROR, 128)
     {
     }
 
-    inline MQueue::MQueue(const key_t key, ePermission perm)
+    inline MQueue::MQueue(const key_t key, const ePermission perm)
         : MQueue(key, perm, 128)
     {
     }
 
     inline MQueue::MQueue(const key_t key, const size_t payload_max_size)
-        : MQueue(key, ePermission::RWR_R_, payload_max_size)
+        : MQueue(key, ePermission::URWGROR, payload_max_size)
     {
     }
 
     inline MQueue::MQueue(const key_t key,
-                          ePermission perm,
+                          const ePermission perm,
                           const size_t payload_max_size)
         : key_{ key }
         , queue_owner_{ true }
@@ -362,11 +362,10 @@ namespace mq
 
     inline auto MQueue::msg() const -> std::string
     {
-        auto msg_len =
-            reinterpret_cast<const size_t*>(msg_buf_.data() + sizeof(long));
-        return std::string(
-            msg_buf_.begin() + sizeof(long) + sizeof(size_t),
-            msg_buf_.begin() + sizeof(long) + sizeof(size_t) + *msg_len);
+        const auto msg_len =
+            reinterpret_cast<const uint32_t*>(msg_buf_.data() + sizeof(long));
+        return { msg_buf_.begin() + sizeof(long) + sizeof(size_t),
+                 msg_buf_.begin() + sizeof(long) + sizeof(size_t) + *msg_len };
     }
 
     inline auto MQueue::err() const -> ssize_t
@@ -427,7 +426,7 @@ namespace mq
 }  // ::ipcplusplus::sysv::mq
 
 }  // ::ipcplusplus::sysv
-__IPCPLUSPLUS_END
+IPCPLUSPLUS_END_
 
 
 /// ============================================================================

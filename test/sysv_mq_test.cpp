@@ -1,9 +1,6 @@
 /// sysv_mq_test.cpp
 ///
 
-#include <chrono>
-#include <thread>
-
 #include "gtest/gtest.h"
 
 //#include "ipcplusplus.h"
@@ -23,13 +20,13 @@ TEST(mq, ePermission)
 {  // ::ipcplusplus::sysv::mq
     using ePermission_Ty = sysv::mq::ePermission;
 
-    ASSERT_EQ(0666, static_cast<uint32_t>(ePermission_Ty::RWRWRW));
-    ASSERT_EQ(0422, static_cast<uint32_t>(ePermission_Ty::R_____ |
-                                          ePermission_Ty::___W__ |
-                                          ePermission_Ty::_____W));
-    ASSERT_EQ(ePermission_Ty::RWRWRW, ePermission_Ty::RW____ |
-                                      ePermission_Ty::__RW__ |
-                                      ePermission_Ty::____RW);
+    ASSERT_EQ(0666, static_cast<uint32_t>(ePermission_Ty::ALL));
+    ASSERT_EQ(0422, static_cast<uint32_t>(ePermission_Ty::UR |
+                                          ePermission_Ty::GW |
+                                          ePermission_Ty::OW));
+    ASSERT_EQ(ePermission_Ty::ALL, ePermission_Ty::URW |
+                                   ePermission_Ty::GRW |
+                                   ePermission_Ty::ORW);
 }
 
 TEST(mq, MQueue)
@@ -38,7 +35,7 @@ TEST(mq, MQueue)
     using MQueue_Ty      = sysv::mq::MQueue;
 
     const key_t    key   = sysv::utils::create_key("./", 255);
-    ePermission_Ty flag  { ePermission_Ty::RWR_R_ };
+    ePermission_Ty flag  { ePermission_Ty::URWGROR };
     MQueue_Ty      mqueue{ key, flag };
     if (mqueue.err() != 0)
     {
@@ -51,7 +48,7 @@ TEST(mq, MQueue)
     {  // Queue Already exists. (errno == EEXIST)
         const key_t    key_1   = sysv::utils::create_key("./", 1);
 
-        ePermission_Ty flag_1  { ePermission_Ty::RWRWRW };
+        ePermission_Ty flag_1  { ePermission_Ty::ALL };
         MQueue_Ty      mqueue_1{ key_1, flag_1 };
         if (mqueue_1.err() != 0)
         {
@@ -59,7 +56,7 @@ TEST(mq, MQueue)
             return;
         }
 
-        ePermission_Ty flag_2  { ePermission_Ty::RWR_R_ };
+        ePermission_Ty flag_2  { ePermission_Ty::URWGROR };
         MQueue_Ty      mqueue_2{ key_1, flag_2, 1000 };
         if (mqueue_2.err() != 0)
         {
@@ -84,27 +81,29 @@ TEST(mq, MQueue)
     {  // change_permision()
         ASSERT_EQ(0644, static_cast<uint16_t>(mqueue.permission()));
 
-        flag = ePermission_Ty::_W____ |
-               ePermission_Ty::___W__ |
-               ePermission_Ty::____R_;
+        flag = ePermission_Ty::UW |
+               ePermission_Ty::GW |
+               ePermission_Ty::OR;
         mqueue.change_permission(flag);
 
         ASSERT_EQ(0224, static_cast<uint16_t>(mqueue.permission()));
     }
 
     {  // queue_info()
+        // ReSharper disable once CppDFAUnusedValue, CppDFAUnreadVariable
         struct msqid_ds info{ mqueue.queue_info() };
         ASSERT_EQ(typeid(struct msqid_ds), typeid(info));
 
-        flag = (ePermission_Ty::RW____ |
-                ePermission_Ty::__RW__ |
-                ePermission_Ty::____RW);
+        flag = (ePermission_Ty::URW |
+                ePermission_Ty::GRW |
+                ePermission_Ty::ORW);
         mqueue.change_permission(flag);
         struct msqid_ds info_1{ mqueue.queue_info() };
         ASSERT_EQ(static_cast<uint16_t>(flag), info_1.msg_perm.mode);
+
     }
 
-    const long mtype = 21;
+    constexpr long mtype = 21;
 
     {  // send()
         for (size_t i = 0; i < 10; i++)
